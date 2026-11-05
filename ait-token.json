@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schema/ait-token.json",
+  "title": "Agent Identity Token (AIT) Payload Schema",
+  "description": "JSON Schema for the AIT payload. AIT is a profile of JWT (RFC 7519) defined by the Sovereignty Verification Protocol (SVP). Version 1.1.0-draft, corresponding to draft-bravo-svp-ait-spec-02 \u2014 adds the optional cnf (confirmation) claim for Bound AITs per RFC 7800 / RFC 9449 (see spec Section 4.5).",
+  "type": "object",
+  "required": [
+    "iss",
+    "org",
+    "agent_id",
+    "agent_type",
+    "assurance",
+    "scope",
+    "iat",
+    "exp",
+    "jti"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "iss": {
+      "type": "string",
+      "format": "uri",
+      "description": "Issuer. URI of the Agent Identity Registry (AIR) that issued this token. Per RFC 7519 §4.1.1.",
+      "examples": ["https://air.example.com"]
+    },
+    "org": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "SVP Extension claim. Registered organization identifier. Must resolve in AIR. Lowercase alphanumeric with hyphens.",
+      "examples": ["acme-corp", "dod-dla-contractor"]
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "SVP Extension claim. Unique agent instance identifier within the organization namespace.",
+      "examples": ["research-agent-001", "procurement-agent-dla-001"]
+    },
+    "agent_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "SVP Extension claim. Declared agent class. Determines scope contracts and rate limits in AIR.",
+      "examples": [
+        "research",
+        "procurement",
+        "analyst",
+        "crawler",
+        "search-indexer",
+        "training-crawler",
+        "logistics",
+        "monitoring"
+      ]
+    },
+    "assurance": {
+      "type": "string",
+      "enum": ["AIT-0", "AIT-1", "AIT-2", "AIT-3", "AIT-4"],
+      "description": "SVP Extension claim. AIT Assurance Level. Maps to NIST SP 800-63 IAL. AIT-0: self-issued. AIT-1: registry verified. AIT-2: organization verified. AIT-3: government validated (PIV/CAC/Login.gov). AIT-4: high assurance (IL4/IL5). Independent of credential binding (cnf) — see spec Section 5."
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$"
+      },
+      "description": "Array of declared access scopes per RFC 8693. Format: action:resource. Edge validators MUST reject requests not covered by at least one scope value.",
+      "examples": [
+        ["read:documents", "query:public-api"],
+        ["read:contracts", "submit:orders"],
+        ["index:public-content"]
+      ]
+    },
+    "iat": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Issued-at time. Unix epoch seconds. Per RFC 7519 §4.1.6.",
+      "examples": [1789530000]
+    },
+    "exp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Expiration time. Unix epoch seconds. Per RFC 7519 §4.1.4. MUST be after iat.",
+      "examples": [1789540000]
+    },
+    "jti": {
+      "type": "string",
+      "format": "uuid",
+      "description": "JWT ID. UUID v4 per RFC 4122. Per RFC 7519 §4.1.7. Used for revocation list matching.",
+      "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+    },
+    "nbf": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Not-before time. Optional. Unix epoch seconds. Per RFC 7519 §4.1.5.",
+      "examples": [1789530000]
+    },
+    "cnf": {
+      "type": "object",
+      "description": "OPTIONAL. Confirmation claim per RFC 7800. Presence indicates a Bound AIT (spec Section 4.5); absence indicates a Bearer AIT. additionalProperties is false here deliberately \u2014 this schema only supports JWK-thumbprint confirmation (jkt), not the other RFC 7800 confirmation methods (jwk, jwe, kid), to keep the validator's job to one code path.",
+      "additionalProperties": false,
+      "required": ["jkt"],
+      "properties": {
+        "jkt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "JWK SHA-256 Thumbprint (RFC 7638) of the public key this AIT is bound to. The edge validator computes the thumbprint of the key in the presented Proof-of-Possession JWT header and compares it to this value.",
+          "examples": ["0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "iss": "https://air.example.com",
+      "org": "acme-corp",
+      "agent_id": "research-agent-001",
+      "agent_type": "research",
+      "assurance": "AIT-2",
+      "scope": ["read:documents", "query:public-api"],
+      "iat": 1789530000,
+      "exp": 1789540000,
+      "jti": "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      "iss": "https://air.example.com",
+      "org": "dod-dla-contractor",
+      "agent_id": "procurement-agent-dla-001",
+      "agent_type": "procurement",
+      "assurance": "AIT-3",
+      "scope": ["read:contracts", "submit:orders", "query:dlms"],
+      "iat": 1789530000,
+      "exp": 1789533600,
+      "jti": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    },
+    {
+      "iss": "https://air.example.com",
+      "org": "acme-corp",
+      "agent_id": "procurement-agent-002",
+      "agent_type": "procurement",
+      "assurance": "AIT-4",
+      "scope": ["submit:orders"],
+      "iat": 1789530000,
+      "exp": 1789531800,
+      "jti": "9b2e7f10-3c44-4a1e-9d0e-1f6a4b2c9e77",
+      "cnf": {
+        "jkt": "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"
+      }
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schema/svp-discovery.json",
+  "title": "SVP Discovery Document Schema",
+  "description": "JSON Schema for the SVP discovery document served at GET /.well-known/svp-identity per RFC 8615. Part of the Sovereignty Verification Protocol (SVP). Version 1.0.0-draft.",
+  "type": "object",
+  "required": [
+    "svp_supported",
+    "protocol_version",
+    "registry",
+    "jwks_uri",
+    "token_endpoint",
+    "revocation_endpoint",
+    "assurance_levels_supported",
+    "algorithms_supported",
+    "issuer"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "svp_supported": {
+      "type": "boolean",
+      "const": true,
+      "description": "MUST be true. Signals that this endpoint is SVP-capable."
+    },
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "SVP protocol version supported by this AIR.",
+      "examples": ["1.0"]
+    },
+    "registry": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URI of the Agent Identity Registry (AIR). HTTPS required.",
+      "examples": ["https://air.example.org"]
+    },
+    "jwks_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of the JWKS endpoint per RFC 7517. MUST be /.well-known/jwks.json at the registry base URI.",
+      "examples": ["https://air.example.org/.well-known/jwks.json"]
+    },
+    "token_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of the AIT token issuance endpoint.",
+      "examples": ["https://air.example.org/v1/token"]
+    },
+    "revocation_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of the revocation endpoint.",
+      "examples": ["https://air.example.org/v1/revoke"]
+    },
+    "revocation_list_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional. URI of the Signed Revocation List (SRL) endpoint for edge validator sync.",
+      "examples": ["https://air.example.org/v1/revocation-list"]
+    },
+    "enrollment_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional. URI of the entity enrollment endpoint.",
+      "examples": ["https://air.example.org/v1/enroll"]
+    },
+    "assurance_levels_supported": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["AIT-0", "AIT-1", "AIT-2", "AIT-3", "AIT-4"]
+      },
+      "description": "AIT Assurance Levels supported by this AIR.",
+      "examples": [
+        ["AIT-0", "AIT-1", "AIT-2"],
+        ["AIT-0", "AIT-1", "AIT-2", "AIT-3", "AIT-4"]
+      ]
+    },
+    "algorithms_supported": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["ES256", "ES384", "ES512", "RS256", "RS384", "RS512"]
+      },
+      "description": "JWS signing algorithms supported. HS256 MUST NOT appear.",
+      "examples": [
+        ["ES256", "RS256"],
+        ["ES256", "ES384", "RS256", "RS512"]
+      ]
+    },
+    "issuer": {
+      "type": "string",
+      "format": "uri",
+      "description": "Issuer identifier. MUST match the iss claim in AIT tokens from this AIR.",
+      "examples": ["https://air.example.org"]
+    },
+    "srl_ttl_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 900,
+      "description": "Optional. Default SRL cache TTL in seconds. Default: 300. Maximum: 900.",
+      "examples": [300, 600]
+    },
+    "max_token_ttl_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "description": "Optional. Maximum AIT token TTL in seconds this AIR will issue.",
+      "examples": [3600, 86400]
+    },
+    "service_documentation": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional. URI of the AIR service documentation.",
+      "examples": ["https://docs.example.org"]
+    }
+  },
+  "examples": [
+    {
+      "svp_supported": true,
+      "protocol_version": "1.0",
+      "registry": "https://air.example.org",
+      "jwks_uri": "https://air.example.org/.well-known/jwks.json",
+      "token_endpoint": "https://air.example.org/v1/token",
+      "revocation_endpoint": "https://air.example.org/v1/revoke",
+      "revocation_list_endpoint": "https://air.example.org/v1/revocation-list",
+      "assurance_levels_supported": ["AIT-0", "AIT-1", "AIT-2", "AIT-3", "AIT-4"],
+      "algorithms_supported": ["ES256", "ES384", "RS256", "RS512"],
+      "issuer": "https://air.example.org",
+      "srl_ttl_seconds": 300,
+      "max_token_ttl_seconds": 3600
+    }
+  ]
+}

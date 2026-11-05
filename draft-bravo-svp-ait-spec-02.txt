@@ -1,0 +1,915 @@
+Internet-Draft                                                  A. Bravo
+Intended status: Informational                    Bravo01 Labs & Dynamics
+Expires: April 23, 2027                               October 23, 2026
+
+
+      Sovereignty Verification Protocol (SVP): Agent Identity Token
+       (AIT) — A JWT Profile for Autonomous System Identity and
+                              Routing
+                   draft-bravo-svp-ait-spec-02
+
+
+Abstract
+
+   This document defines the Agent Identity Token (AIT), a profile of
+   JSON Web Token (JWT) [RFC7519] specified as part of the Sovereignty
+   Verification Protocol (SVP) and optimized for autonomous system
+   identity declaration at the network perimeter.  AIT enables
+   autonomous AI agents to cryptographically declare their identity,
+   organizational affiliation, authorization scope, and identity
+   assurance level before accessing protected network resources.
+
+   The SVP framework introduces a two-zone routing model: a Verified
+   Agent Zone (VAZ) for declared autonomous systems presenting valid
+   AIT credentials, and a General Access Zone (GAZ) for undeclared
+   traffic including human users.  This model shifts the security
+   paradigm from reactive bot detection to declarative identity,
+   rewarding transparency rather than penalizing automation.
+
+   The AIT token schema, routing specification, and audit record format
+   described in this document are published as open standards under
+   CC0 1.0 Universal license.  Implementation infrastructure (Agent
+   Identity Registry, validation pipeline, revocation distribution)
+   is outside the scope of this document.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current
+   Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six
+   months and may be updated, replaced, or obsoleted by other documents
+   at any time.  It is inappropriate to use Internet-Drafts as
+   reference material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on April 23, 2027.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (https://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.
+
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Conventions and Definitions  . . . . . . . . . . . . . . . .  4
+   3.  Problem Statement . . . . . . . . . . . . . . . . . . . . .  5
+   4.  AIT Token Structure . . . . . . . . . . . . . . . . . . . .  6
+     4.1.  Token Header  . . . . . . . . . . . . . . . . . . . . .  6
+     4.2.  Token Payload . . . . . . . . . . . . . . . . . . . . .  7
+     4.3.  Field Definitions . . . . . . . . . . . . . . . . . . .  8
+     4.4.  HTTP Transmission . . . . . . . . . . . . . . . . . . .  9
+     4.5.  Credential Binding and Proof of Possession . . . . . .  9
+   5.  AIT Assurance Levels  . . . . . . . . . . . . . . . . . . .  9
+   6.  Cryptographic Requirements  . . . . . . . . . . . . . . . . 10
+     6.1.  Algorithm Requirements  . . . . . . . . . . . . . . . . 10
+     6.2.  Key Infrastructure (JWKS) . . . . . . . . . . . . . . . 11
+     6.3.  SVP Discovery Endpoint  . . . . . . . . . . . . . . . . 12
+   7.  Routing Model . . . . . . . . . . . . . . . . . . . . . . . 13
+     7.1.  Verified Agent Zone (VAZ) . . . . . . . . . . . . . . . 13
+     7.2.  General Access Zone (GAZ) . . . . . . . . . . . . . . . 14
+     7.3.  Validation Pipeline  . . . . . . . . . . . . . . . . . 14
+   8.  Revocation  . . . . . . . . . . . . . . . . . . . . . . . . 15
+     8.1.  Signed Revocation List (SRL)  . . . . . . . . . . . . . 15
+     8.2.  Revocation Endpoints  . . . . . . . . . . . . . . . . . 16
+   9.  Audit Record Schema . . . . . . . . . . . . . . . . . . . . 16
+  10.  Security Considerations . . . . . . . . . . . . . . . . . . 17
+  11.  Privacy Considerations  . . . . . . . . . . . . . . . . . . 18
+  12.  IANA Considerations . . . . . . . . . . . . . . . . . . . . 18
+  13.  References  . . . . . . . . . . . . . . . . . . . . . . . . 19
+  Appendix A.  Change Log . . . . . . . . . . . . . . . . . . . . 20
+  Author's Address . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+
+1.  Introduction
+
+   The proliferation of autonomous AI agents operating on the public
+   internet has created a structural gap in network identity
+   infrastructure.  Current web architecture has no broadly adopted,
+   standardized mechanism for an autonomous system to declare its identity,
+   organizational affiliation, or authorization scope at the network
+   perimeter.  Existing bot management solutions operate reactively,
+   attempting to classify traffic after it arrives rather than enabling
+   autonomous systems to identify themselves before accessing resources.
+
+   The Sovereignty Verification Protocol (SVP) addresses this gap by
+   defining the Agent Identity Token (AIT), a profile of JWT [RFC7519]
+   that provides a standardized, cryptographically verifiable identity
+   primitive for autonomous systems.  SVP is designed to be:
+
+   o  Compatible with existing JWT [RFC7519], JWS [RFC7515], and
+      JWKS [RFC7517] infrastructure without modification.
+
+   o  Designed with reference to NIST SP 800-63 identity assurance
+      concepts and DoD identity frameworks through the AIT
+      Assurance Level hierarchy (AIT-0 through AIT-4).  This is
+      SVP's proposed alignment and does not imply endorsement by
+      NIST or the DoD.
+
+   o  Implementable by any autonomous system regardless of the
+      underlying AI framework.
+
+   o  Composable with existing bot management, Zero Trust, and
+      identity and access management infrastructure.
+
+   SVP introduces two operational routing domains:
+
+   Verified Agent Zone (VAZ):  A dedicated routing domain for
+      autonomous systems presenting valid, non-revoked AIT credentials
+      with authorized scope.  VAZ traffic receives governed, auditable,
+      scoped access.
+
+   General Access Zone (GAZ):  A routing domain for all undeclared
+      traffic, including human users, legacy software, unknown
+      automation, and agents that have not enrolled in an Agent
+      Identity Registry (AIR).  The GAZ does not imply blocked
+      access.  Human users are served normally in the GAZ.
+
+   The fundamental paradigm shift introduced by SVP is the movement
+   from detection-based security to declaration-based security:
+   rewarding transparency by providing a governed path for declared
+   autonomous systems while applying implementation-specific scrutiny
+   to undeclared traffic.
+
+   Note on naming: SVP is the framework name. AIT (Agent Identity
+   Token) is the cryptographic primitive SVP defines. AIR (Agent
+   Identity Registry) is the authority that issues and validates
+   AIT tokens. All three terms are used throughout this document.
+
+
+2.  Conventions and Definitions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY",
+   and "OPTIONAL" in this document are to be interpreted as described
+   in BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in
+   all capitals, as shown here.
+
+   SVP:  Sovereignty Verification Protocol.  The framework defined
+      in this document.
+
+   AIT:  Agent Identity Token.  A JWT-structured cryptographic
+      identity artifact conforming to this specification.
+
+   AIR:  Agent Identity Registry.  An authority responsible for
+      entity enrollment, agent registration, token issuance,
+      revocation, and validation services.  AIR implementations
+      are outside the scope of this document.
+
+   VAZ:  Verified Agent Zone.  The routing domain for autonomous
+      systems presenting valid AIT credentials.
+
+   GAZ:  General Access Zone.  The routing domain for undeclared
+      traffic including human users.
+
+   SRL:  Signed Revocation List.  A signed, cached list of revoked
+      AIT token identifiers distributed to edge validators.
+
+
+3.  Problem Statement
+
+3.1.  Legitimate Agent Interference
+
+   Autonomous systems operating with declared, legitimate purpose are
+   indistinguishable at the network layer from adversarial automated
+   traffic.  They are subject to the same bot detection mechanisms as
+   malicious scrapers, creating friction for autonomous agent
+   operations and reducing efficiency.
+
+3.2.  Adversarial Agent Impunity
+
+   Without a formal credential system, adversarial autonomous systems
+   have nothing to fake or bypass.  Detection-based systems are
+   continuously evaded by residential proxy rotation, browser
+   emulation, and behavioral mimicry.  A declaration-based system
+   creates an asymmetric accountability structure: declared agents
+   accept governance obligations; undeclared agents receive scrutiny.
+
+3.3.  Regulatory Implementation Gap
+
+   Multiple federal frameworks require verifiable provenance and
+   accountability for autonomous AI systems but lack a technical
+   standard at the network layer:
+
+   o  Executive Order 14110 (Safe, Secure, and Trustworthy AI)
+   o  Department of Defense Zero Trust Strategy (deadline: 2027)
+   o  CMMC 2.0 access control and audit requirements
+
+   SVP provides infrastructure components that may assist organizations
+   implementing applicable requirements.  SVP does not claim
+   compliance certification by itself.
+
+
+4.  AIT Token Structure
+
+   An AIT token is a JSON Web Token [RFC7519] with a JOSE header
+   typ claim of "AIT".  This value distinguishes AIT tokens from
+   standard bearer JWTs and enables specialized processing by
+   SVP-aware infrastructure.
+
+4.1.  Token Header
+
+   The JOSE header of an AIT token MUST contain:
+
+   alg:  REQUIRED.  JWS algorithm identifier [RFC7518].  MUST NOT
+      be "none" or "HS256" in production.  RECOMMENDED: "ES256".
+
+   kid:  REQUIRED.  Key identifier for JWKS resolution at the
+      AIR's /.well-known/jwks.json endpoint [RFC7517].
+
+   typ:  REQUIRED.  MUST be the literal string "AIT".
+
+   Example:
+
+      {
+        "alg": "ES256",
+        "kid": "svp-key-2026-06",
+        "typ": "AIT"
+      }
+
+4.2.  Token Payload
+
+   The AIT payload MUST contain:
+
+   iss:  REQUIRED.  Issuer URI [RFC7519].  Identifies the AIR.  Edge
+      validators MUST compare it, by exact string equality, with
+      the issuer identifier they are configured to trust.
+
+   org:  REQUIRED.  Registered organization identifier.  MUST
+      resolve to an active enrolled entity in the issuing AIR.
+      SVP Extension claim.
+
+   agent_id:  REQUIRED.  Unique agent instance identifier within
+      the organization namespace.  SVP Extension claim.
+
+   agent_type:  REQUIRED.  Declared agent class.  Examples:
+      "research", "procurement", "search-indexer",
+      "training-crawler".  SVP Extension claim.
+
+   assurance:  REQUIRED.  AIT Assurance Level.  MUST be one of
+      "AIT-0", "AIT-1", "AIT-2", "AIT-3", or "AIT-4".
+      SVP Extension claim.
+
+   scope:  REQUIRED.  Array of declared access scopes [RFC8693].
+      Format: "action:resource".  Edge validators MUST reject
+      requests to resources not covered by at least one value.
+
+   iat:  REQUIRED.  Issued-at time [RFC7519].
+
+   exp:  REQUIRED.  Expiration time [RFC7519].
+
+   jti:  REQUIRED.  JWT ID [RFC7519].  MUST be UUID v4 [RFC4122].
+
+   cnf:  OPTIONAL.  Confirmation claim [RFC7800].  Present only on
+      a Bound AIT (Section 4.5).  Contains a single member, jkt:
+      the JWK SHA-256 Thumbprint [RFC7638] of the public key this
+      AIT is cryptographically bound to.  Absence of cnf means the
+      token is a Bearer AIT.
+
+   Example payload (Bearer AIT):
+
+      {
+        "iss": "https://air.example.com",
+        "org": "acme-corp",
+        "agent_id": "research-agent-001",
+        "agent_type": "research",
+        "assurance": "AIT-2",
+        "scope": ["read:documents", "query:public-api"],
+        "iat": 1789530000,
+        "exp": 1789540000,
+        "jti": "550e8400-e29b-41d4-a716-446655440000"
+      }
+
+   Example payload (Bound AIT, Section 4.5):
+
+      {
+        "iss": "https://air.example.com",
+        "org": "acme-corp",
+        "agent_id": "procurement-agent-002",
+        "agent_type": "procurement",
+        "assurance": "AIT-4",
+        "scope": ["submit:orders"],
+        "iat": 1789530000,
+        "exp": 1789531800,
+        "jti": "9b2e7f10-3c44-4a1e-9d0e-1f6a4b2c9e77",
+        "cnf": {
+          "jkt": "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"
+        }
+      }
+
+4.3.  Field Definitions
+
+   +-------------+----------+--------------------------------------+
+   | Field       | RFC Ref  | Description                          |
+   +-------------+----------+--------------------------------------+
+   | alg         | RFC 7518 | Signing algorithm identifier         |
+   | kid         | RFC 7517 | Key ID for JWKS resolution           |
+   | typ         | RFC 7519 | Token type; MUST be "AIT"            |
+   | iss         | RFC 7519 | Issuer URI                           |
+   | org         | SVP Ext. | Registered organization identifier   |
+   | agent_id    | SVP Ext. | Unique agent instance identifier     |
+   | agent_type  | SVP Ext. | Declared agent class                 |
+   | assurance   | SVP Ext. | Assurance level (AIT-0 to AIT-4)    |
+   | scope       | RFC 8693 | Array of declared access scopes      |
+   | iat         | RFC 7519 | Issued-at timestamp                  |
+   | exp         | RFC 7519 | Expiration timestamp                 |
+   | jti         | RFC 7519 | Unique token identifier (UUID v4)    |
+   | cnf         | RFC 7800 | Confirmation claim (bound AIT only)  |
+   +-------------+----------+--------------------------------------+
+
+4.4.  HTTP Transmission
+
+   AIT tokens MUST be transmitted in the X-Agent-Token HTTP header:
+
+      X-Agent-Token: <base64url(header)>.<base64url(payload)>.<sig>
+
+   Implementations MUST use HTTPS (TLS 1.2 minimum, TLS 1.3
+   RECOMMENDED).  AIT tokens MUST NOT be transmitted over
+   unencrypted connections.
+
+4.5.  Credential Binding and Proof of Possession
+
+   AIT tokens MAY be presented in one of two modes.
+
+   Bearer AIT:  Presented without a cnf claim.  Any party holding
+      the token can present it; the edge validator has no way to
+      distinguish the intended presenter from any other party in
+      possession of the token string.  Bearer AITs are RECOMMENDED
+      only where the resource owner has assessed and accepted the
+      associated replay risk (Section 10.3).
+
+   Bound AIT:  Presented with a cnf.jkt claim (Section 4.2)
+      identifying a public key.  The presenter MUST prove
+      possession of the corresponding private key on each request
+      via a Proof of Possession (PoP) JWT.
+
+   Relationship to RFC 9449 (DPoP):  this specification profiles
+      the proof JWT defined by [RFC9449] for use with AIT
+      credentials.  The cryptographic proof, key-binding, request-
+      binding, freshness, and replay-detection semantics are
+      derived from [RFC9449]; the HTTP carrier and the credential
+      being bound are defined by SVP.  This profile is not itself
+      an OAuth 2.0 DPoP implementation and does not claim full
+      RFC 9449 conformance.  Two departures from a typical OAuth
+      DPoP deployment are deliberate and stated here rather than
+      left implicit:
+
+   o  The proof is carried in X-Agent-Proof rather than the
+      [RFC9449] DPoP header because SVP's credential transport is
+      independently defined as X-Agent-Token (Section 4.4), not
+      OAuth's Authorization: Bearer.  The distinct header makes
+      the SVP credential/proof pair explicit and avoids implying
+      an OAuth authorization flow that SVP does not implement.
+
+   o  This profile does NOT currently adopt the RFC 9449 Section 8
+      nonce challenge/response mechanism (DPoP-Nonce /
+      use_dpop_nonce).  Nonce support is OPTIONAL under RFC 9449
+      itself, so this is not a conformance violation, but
+      implementers MUST NOT assume it is present.  This is a real
+      gap relative to a hardened OAuth DPoP deployment and is
+      tracked as roadmap, not silently omitted.
+
+   The proof is transmitted as follows:
+
+      X-Agent-Proof: <base64url(header)>.<base64url(payload)>.<sig>
+
+   The PoP JWT:
+
+   o  MUST have a JOSE header typ of "dpop+jwt" and a jwk member
+      containing the presenter's public key, per [RFC9449]
+      Section 4.
+
+   o  MUST have a payload containing jti (unique per proof), htm
+      (HTTP method), htu (HTTP URI, matching the requested
+      resource), iat, and ath — the base64url-encoded SHA-256 hash
+      of the presented AIT token string, filling the role RFC 9449
+      defines for an OAuth access token.  AIT is not an OAuth
+      access token; the hash-binding purpose is identical.
+
+   o  MUST be signed with an algorithm meeting the requirements of
+      Section 6.1; none and HS256 are PROHIBITED, identically to
+      AIT signing.
+
+   An edge validator processing a Bound AIT MUST:
+
+   Check 1:  Compute the JWK SHA-256 Thumbprint [RFC7638] of the
+             jwk in the PoP JWT header and confirm it equals the
+             AIT's cnf.jkt.
+   Check 2:  Verify the PoP JWT's signature against that same jwk.
+   Check 3:  Confirm ath matches the hash of the presented AIT.
+   Check 4:  Confirm htm/htu match the actual request.
+   Check 5:  Confirm iat is within an acceptable freshness window
+             (RECOMMENDED: 60 seconds).
+   Check 6:  Confirm the proof's jti has not been seen before
+             within that same freshness window (see the replay
+             cache note below).
+
+   Any failure in Checks 1-6 MUST result in GAZ routing (Section
+   7.3, Step 11), even if the AIT itself is otherwise fully valid.
+
+   The PoP jti replay cache is intentionally distinct from the AIT
+   revocation SRL (Section 8.1): it is keyed on proof jti, not
+   token jti, and needs only a TTL matching the freshness window
+   above (seconds, not minutes), since a proof's validity window
+   is itself that short.
+
+   A resource owner MAY require Bound AITs for specific resources
+   independently of the required assurance level (Section 5); the
+   two are separate, composable policy dimensions.
+
+   This specification defines the security semantics of credential
+   binding and proof of possession:
+
+   o  If the presented AIT carries a cnf claim, the validator MUST
+      verify Proof of Possession before permitting VAZ routing,
+      regardless of whether the resource policy itself requires
+      binding.  A Bound AIT presented without a valid proof MUST
+      NOT be treated as a Bearer AIT.  Otherwise a stolen Bound
+      AIT could be replayed as a bearer credential at any resource
+      that does not demand binding.
+
+   o  If the resource policy requires a Bound AIT and the presented
+      AIT carries no cnf claim, the validator MUST route to GAZ
+      (Section 7.3, Step 11).  The
+   mechanism by which a resource owner expresses that its policy
+   requires binding is implementation-specific, unless standardized
+   separately from this document — the same treatment already given
+   to scope-to-resource mapping (Section 7.3, Step 9).
+
+
+5.  AIT Assurance Levels
+
+   +---------+----------------------+--------------------------------+
+   | Level   | Designation          | Proposed NIST 800-63 Mapping   |
+   +---------+----------------------+--------------------------------+
+   | AIT-0   | Self-Issued          | IAL1 (self-asserted)           |
+   | AIT-1   | Registry Verified    | IAL1 (verified)                |
+   | AIT-2   | Organization Verified| IAL2 (remote)                  |
+   | AIT-3   | Government Validated | IAL2 (in-person equivalent)    |
+   | AIT-4   | High Assurance       | IAL3                           |
+   +---------+----------------------+--------------------------------+
+
+   AIT-3 requires identity verified against PIV, CAC, or Login.gov.
+   AIT-4 requires multi-factor verification, security review, and
+   ongoing compliance attestation.  AIT-3 and AIT-4 tokens MUST be signed
+   with ES384 or RS512; a token claiming either level that is signed
+   with any other algorithm MUST be rejected (GAZ routing).
+
+   Assurance level and credential binding (Section 4.5) are
+   independent security properties.  Assurance level describes how
+   rigorously the underlying identity was verified at issuance;
+   credential binding describes whether the token, once issued, can
+   be used only by the party it was issued to.  A high assurance
+   level does not by itself provide replay resistance, and a Bound
+   AIT does not by itself establish identity assurance.  Resource
+   owners configuring access policy SHOULD consider both dimensions
+   independently.
+
+   The following table is non-normative.  It deliberately contains
+   none of the keywords defined in Section 2 — those keywords apply
+   only in all capitals, and a guidance table is the wrong place for
+   a MUST/SHOULD/REQUIRED that would compete with the resource
+   owner's own authority to set policy for its resources:
+
+   +-------+-----------------------+----------------------------------+
+   | Level | Verification          | Binding Guidance (Non-Normative) |
+   +-------+-----------------------+----------------------------------+
+   | AIT-0 | Self-issued           | Bearer sufficient                |
+   | AIT-1 | Registry verified     | Bearer or Bound, per policy      |
+   | AIT-2 | Organization verified | Bound commonly used              |
+   | AIT-3 | Government validated  | Bound commonly expected          |
+   | AIT-4 | High assurance        | Bound commonly expected          |
+   +-------+-----------------------+----------------------------------+
+
+   Operators MAY configure VAZ resources to require a minimum
+   assurance level.  A request bearing AIT-1 to a resource requiring
+   AIT-3 MUST be rejected with HTTP 403.
+
+
+6.  Cryptographic Requirements
+
+   SVP does not define new cryptographic primitives.  The following
+   specifies how RFC 7518 algorithms are applied in SVP context.
+
+6.1.  Algorithm Requirements
+
+   Implementations MUST support:
+
+   ES256:  ECDSA P-256.  RECOMMENDED for all implementations.
+
+   RS256:  RSASSA-PKCS1-v1_5 SHA-256.  Required minimum
+      for production deployments.
+
+   Implementations MUST support for AIT-3 and AIT-4:
+
+   ES384:  ECDSA P-384.
+   RS512:  RSASSA-PKCS1-v1_5 SHA-512.
+
+   AIT-3 and AIT-4 tokens MUST be signed with ES384 or RS512
+   (Section 5).  An AIR claiming support for AIT-3 or AIT-4 MUST
+   hold at least one active signing key using one of these
+   algorithms and MUST NOT issue AIT-3 or AIT-4 tokens signed
+   with any other algorithm.
+
+   Implementations MUST NOT use:
+
+   HS256:  PROHIBITED in production.  Symmetric key not suitable
+      for distributed validation.
+
+   none:   PROHIBITED under all circumstances.
+
+   Proof of Possession JWTs (Section 4.5) MUST meet the same
+   algorithm restrictions as AIT tokens defined above, including
+   the HS256 and none prohibitions.
+
+6.2.  Key Infrastructure (JWKS)
+
+   AIR implementations MUST expose public signing keys at:
+
+      GET /.well-known/jwks.json
+
+   Example response:
+
+      {
+        "keys": [{
+          "kty": "EC",
+          "use": "sig",
+          "crv": "P-256",
+          "kid": "svp-key-2026-06",
+          "x": "<base64url x>",
+          "y": "<base64url y>",
+          "alg": "ES256"
+        }]
+      }
+
+   New keys MUST be published at least 24 hours before first use.
+   Old keys MUST be retained for at least the TTL of the longest-
+   lived outstanding token.
+
+6.3.  SVP Discovery Endpoint
+
+   AIR implementations SHOULD expose a discovery document at:
+
+      GET /.well-known/svp-identity
+
+   Example response:
+
+      {
+        "svp_supported": true,
+        "protocol_version": "1.0",
+        "registry": "https://air.example.com",
+        "jwks_uri": "https://air.example.com/.well-known/jwks.json",
+        "token_endpoint": "https://air.example.com/v1/token",
+        "revocation_endpoint": "https://air.example.com/v1/revoke",
+        "assurance_levels_supported": [
+          "AIT-0","AIT-1","AIT-2","AIT-3","AIT-4"
+        ],
+        "algorithms_supported": ["ES256","ES384","RS256","RS512"],
+        "issuer": "https://air.example.com"
+      }
+
+
+7.  Routing Model
+
+7.1.  Verified Agent Zone (VAZ)
+
+   The VAZ is the routing domain for autonomous systems presenting
+   a valid, non-revoked AIT token with scope covering the requested
+   resource.
+
+   VAZ implementations MUST:
+
+   o  Execute the full validation pipeline (Section 7.3).
+   o  Reject out-of-scope requests with HTTP 403 and log.
+   o  Produce an audit record (Section 9) per transaction.
+   o  Enforce per-agent-type rate limits.
+   o  Reject revoked tokens with no grace period.
+
+7.2.  General Access Zone (GAZ)
+
+   The GAZ is the routing domain for all undeclared traffic.
+
+   GAZ implementations:
+
+   o  MUST serve human users normally.  The GAZ is not a block list.
+   o  SHOULD apply implementation-specific risk assessment.
+   o  MAY integrate existing bot management solutions.
+   o  MAY apply challenge mechanisms to high-risk GAZ traffic.
+
+7.3.  Validation Pipeline
+
+   Edge validators MUST execute the following on every request
+   bearing an X-Agent-Token header:
+
+   Step 1:   Header present and non-empty → else GAZ, no log.
+   Step 2:   Valid JWT structure → else GAZ, log malformed.
+   Step 3:   iss matches the registered protocol issuer
+             identifier → else GAZ, log unknown issuer.
+   Step 4:   Approved algorithm → else GAZ, log unsupported.
+   Step 5:   kid resolves in JWKS → else GAZ, log unknown key.
+   Step 6:   Signature valid → else GAZ, log, notify AIR.
+   Step 7:   Not expired (exp) → else GAZ, log expired.
+   Step 8:   jti not in SRL → else GAZ, log, alert AIR.
+   Step 9:   Scope covers resource → else GAZ, log violation.
+   Step 10:  org active in AIR → else GAZ, log unknown org.
+   Step 11:  If the AIT carries a cnf claim, verify Proof of
+             Possession (Section 4.5) → else GAZ, log missing/
+             invalid PoP.  If the resource policy requires a
+             Bound AIT and the AIT carries no cnf claim → GAZ,
+             log binding required.  This step does not apply
+             to a Bearer AIT presented at a resource that
+             accepts Bearer AITs.
+
+   All applicable steps pass → route to VAZ.
+
+
+8.  Revocation
+
+8.1.  Signed Revocation List (SRL)
+
+   The SRL enables scalable revocation without per-request AIR
+   queries.  Properties:
+
+   o  Compressed set of revoked jti values signed by AIR.
+   o  Edge validators maintain local cached SRL.
+   o  Default TTL: 5 minutes.  Maximum TTL: 15 minutes.
+   o  Emergency revocation (AIT-3/AIT-4) triggers push-invalidation
+      bypassing TTL.
+   o  Propagation target: all edge nodes within 60 seconds.
+   o  SRL signed by AIR using key from JWKS endpoint.
+   o  Refresh is asynchronous and non-blocking.
+
+8.2.  Revocation Endpoints
+
+   AIR implementations MUST expose:
+
+      POST /v1/revoke/{jti}             Revoke by token ID
+      POST /v1/revoke/agent/{agent_id}  Revoke all agent tokens
+      GET  /v1/revocation-list          Fetch current signed SRL
+
+
+9.  Audit Record Schema
+
+   Every VAZ transaction MUST produce an immutable audit record:
+
+      {
+        "record_id":  "<UUID v4>",
+        "agent_id":   "<from AIT agent_id>",
+        "org":        "<from AIT org>",
+        "scope_used": "<matched scope value>",
+        "resource":   "<requested resource path>",
+        "timestamp":  "<ISO 8601 UTC>",
+        "outcome":    "allowed" | "denied",
+        "edge_node":  "<edge validator ID>",
+        "token_jti":  "<from AIT jti>"
+      }
+
+   Implementations SHOULD support export in JSON, CEF, and LEEF.
+   This record is designed to support implementation of CMMC 2.0
+   AU.3.045 and AU.3.046; it does not by itself constitute
+   compliance.
+
+
+10.  Security Considerations
+
+10.1.  Token Confidentiality
+
+   AIT tokens MUST be transmitted over TLS.  Tokens MUST NOT be
+   logged in their entirety.  jti, agent_id, and org are sufficient
+   for audit purposes.
+
+10.2.  Algorithm Prohibition
+
+   The prohibition on HS256 in production is absolute.  Edge
+   validators MUST reject HS256-signed tokens in production.
+
+10.3.  Replay Attacks
+
+   Bearer AITs (Section 4.5) are replayable credentials: a bearer
+   AIT that is intercepted, logged, or exfiltrated from a
+   compromised agent host can be presented by any client until
+   expiration or revocation, and the validator has no mechanism to
+   distinguish the intended presenter from any other party holding
+   the token.  Short TTLs combined with jti caching (Section 8)
+   reduce the exposure window but do not eliminate this risk.
+
+   Deployments requiring stronger replay resistance SHOULD require
+   Bound AITs (Section 4.5) for the affected resources.  A Bound
+   AIT ties the credential to possession of a specific private key;
+   replaying the AIT alone, without also forging a valid Proof of
+   Possession for that key, MUST fail Step 11 of the validation
+   pipeline (Section 7.3).
+
+   A Bound AIT presented without a valid Proof of Possession MUST
+   NOT be accepted as a Bearer AIT, even at a resource that does
+   not itself require binding (Section 4.5, Step 11).
+
+   Short TTLs and jti-based revocation remain independently useful,
+   including for Bound AITs, but MUST NOT be represented as
+   equivalent to sender-constraint.  Assurance level (Section 5)
+   and credential binding (Section 4.5) are independent security
+   properties; a high assurance level alone does not imply
+   resistance to token replay.
+
+10.4.  Scope Enforcement
+
+   Agents MUST NOT present broader scope than required.  AIR
+   implementations SHOULD enforce maximum scope limits per
+   agent_type at enrollment.
+
+10.5.  Assurance Level Enforcement
+
+   Resource operators MUST verify declared assurance level meets
+   their minimum requirement.  The AIT token declares the level;
+   it does not self-enforce it.
+
+10.6.  Key Compromise
+
+   On signing key compromise: (1) publish new key via JWKS,
+   (2) push-invalidate all edge validators, (3) revoke all tokens
+   signed by compromised key, (4) notify enrolled organizations.
+
+
+11.  Privacy Considerations
+
+   o  org and agent_id identify organizational affiliation and
+      SHOULD be treated as sensitive.
+   o  Audit records correlate agent identity with resource access.
+      Access SHOULD be restricted to authorized personnel.
+   o  X-Agent-Token MUST NOT be forwarded to third parties without
+      explicit authorization.
+   o  GAZ implementations MUST NOT infer organizational identity
+      from network characteristics alone.
+
+
+12.  IANA Considerations
+
+12.1.  JWT Claims Registration
+
+   Requesting registration in the IANA JWT Claims registry:
+
+   Claim Name:  org
+   Description: Registered organization identifier (SVP)
+   Specification: This document, Section 4.2
+
+   Claim Name:  agent_id
+   Description: Unique agent instance identifier (SVP)
+   Specification: This document, Section 4.2
+
+   Claim Name:  agent_type
+   Description: Declared agent class (SVP)
+   Specification: This document, Section 4.2
+
+   Claim Name:  assurance
+   Description: SVP AIT Assurance Level (AIT-0 through AIT-4)
+   Specification: This document, Section 5
+
+12.2.  Well-Known URI Registration
+
+   URI suffix:  svp-identity
+   Change Controller: IESG
+   Specification: This document, Section 6.3
+
+
+13.  References
+
+13.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC4122]  Leach, P., et al., "A Universally Unique IDentifier
+              (UUID) URN Namespace", RFC 4122, July 2005.
+
+   [RFC7515]  Jones, M., et al., "JSON Web Signature (JWS)",
+              RFC 7515, May 2015.
+
+   [RFC7517]  Jones, M., "JSON Web Key (JWK)", RFC 7517, May 2015.
+
+   [RFC7518]  Jones, M., "JSON Web Algorithms (JWA)", RFC 7518,
+              May 2015.
+
+   [RFC7519]  Jones, M., et al., "JSON Web Token (JWT)",
+              RFC 7519, May 2015.
+
+   [RFC7638]  Jones, M., Bradley, J., and N. Sakimura, "JSON Web Key
+              (JWK) Thumbprint", RFC 7638, September 2015.
+
+   [RFC7800]  Jones, M., Bradley, J., and H. Tschofenig, "Proof-of-
+              Possession Key Semantics for JSON Web Tokens (JWTs)",
+              RFC 7800, April 2016.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in
+              RFC 2119 Key Words", BCP 14, RFC 8174, May 2017.
+
+   [RFC8615]  Nottingham, M., "Well-Known Uniform Resource
+              Identifiers (URIs)", RFC 8615, May 2019.
+
+   [RFC8693]  Jones, M., et al., "OAuth 2.0 Token Exchange",
+              RFC 8693, January 2020.
+
+   [RFC9449]  Fett, D., Campbell, B., Bradley, J., Lodderstedt, T.,
+              Jones, M., and D. Waite, "OAuth 2.0 Demonstrating
+              Proof of Possession (DPoP)", RFC 9449, September 2023.
+
+13.2.  Informative References
+
+   [NIST-SP-800-63]
+              Grassi, P., et al., "Digital Identity Guidelines",
+              NIST Special Publication 800-63-3, June 2017.
+
+   [EO-14110]
+              Executive Office of the President, "Safe, Secure,
+              and Trustworthy Development and Use of Artificial
+              Intelligence", Executive Order 14110, October 2023.
+
+
+Appendix A.  Change Log
+
+   This section summarizes substantive changes since
+   draft-bravo-svp-ait-spec-00.  It is informative and will be
+   removed before this document reaches a stable, non-draft state.
+
+   Changes in draft-bravo-svp-ait-spec-02:
+
+   o  Section 4.5 and Step 11 (Section 7.3): a token that carries a
+      cnf claim MUST always be verified for Proof of Possession,
+      independent of resource policy.  draft-01 made Step 11
+      conditional on the resource requiring binding, which would
+      have allowed a stolen Bound AIT to be replayed as a bearer
+      token at any resource not requiring binding.  Section 10.3
+      updated to match.
+
+   o  Sections 5 and 6.1: reconciled the AIT-3/AIT-4 algorithm
+      rule.  AIT-3 and AIT-4 tokens MUST be signed with ES384 or
+      RS512; other algorithms MUST be rejected, and an AIR MUST
+      NOT issue such tokens with other algorithms.
+
+   o  Section 4.2: iss is compared by exact string equality with
+      the configured issuer URI.
+
+   o  Wording: softened regulatory and standards language
+      (Introduction, Section 5 table heading, Section 9) so that
+      NIST/DoD alignment is described as SVP's proposal and the
+      audit record as supporting, not satisfying, CMMC controls.
+
+   o  Corrected the Change Log reference for iss from Section
+      3.1.1 to Section 4.2.
+
+   Changes in draft-bravo-svp-ait-spec-01:
+
+   o  Added Section 4.5 (Credential Binding and Proof of
+      Possession), defining the optional cnf claim [RFC7800], the
+      Bearer AIT / Bound AIT distinction, and a PoP mechanism
+      profiled from RFC 9449 (DPoP) and carried in a new
+      X-Agent-Proof header.
+
+   o  Added Section 7.3 Step 11 (conditional Proof of Possession
+      check) and Step 3 (explicit iss check).  The iss check
+      makes explicit a requirement the specification text
+      previously did not list, despite Section 4.2 marking iss as
+      REQUIRED.
+      Section 7.3 is retitled from "Nine-Step Validation Pipeline"
+      to "Validation Pipeline" accordingly.
+
+   o  Added a non-normative assurance/binding guidance table to
+      Section 5, and a paragraph clarifying that assurance level
+      and credential binding are independent security properties.
+
+   o  Rewrote Section 10.3 (Replay Attacks) to describe bearer-
+      token replay risk explicitly and point to Bound AITs as the
+      mitigation for resources that need it.
+
+   o  Added RFC7638, RFC7800, and RFC9449 to Section 13.1
+      (Normative References).
+
+   o  This revision does not change AIT, AIR, VAZ/GAZ, or the
+      assurance-level model.  It adds one new, optional security
+      mechanism and documents one pre-existing implementation
+      behavior; scope was deliberately kept narrow.
+
+   o  Page numbers in the Table of Contents are approximate for
+      this revision and were not recomputed against a paginated
+      build; regenerate via the project's normal toolchain before
+      formal submission.
+
+
+Author's Address
+
+   Albert Bravo
+   Bravo01 Labs & Dynamics
+   United States
+
+   Email: albert@bravo-01-labs.com
+   URI:   https://www.bravo-01-labs.com
